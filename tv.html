@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="so"><head><meta charset="UTF-8">
+<title>Ajs Web TV</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+:root{--bg:#07131c;--panel:#0d2230;--panel2:#143447;--line:#24506a;--text:#eef4f7;--muted:#8fb0c2;
+ --gold:#e3b75b;--gold2:#f6d48b;--live:#e5484d;--red:#d9534f;--green:#3fae6a;--yellow:#e8c547;--blue:#3a7bd5;color-scheme:dark}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);
+ font-family:"SamsungOne","Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+#app{width:1920px;height:1080px;position:absolute;left:0;top:0;transform-origin:0 0;background:#000;overflow:hidden}
+#player,#player iframe{position:absolute;inset:0;width:100%;height:100%;border:0}
+.idle{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:20px;
+ background:radial-gradient(ellipse at 50% 30%,#123247,var(--bg));font-size:40px;color:var(--muted)}
+.idle b{font-size:90px;color:var(--text)}
+/* top bar */
+.top{position:absolute;top:0;left:0;right:0;z-index:5;display:flex;justify-content:space-between;align-items:flex-start;
+ padding:30px 44px 70px;background:linear-gradient(rgba(0,0,0,.85),transparent);transition:opacity .4s}
+.now{display:flex;align-items:center;gap:22px}
+.livepill{background:var(--live);color:#fff;font-weight:800;font-size:24px;padding:6px 16px;border-radius:8px;letter-spacing:2px}
+.livepill.vod{background:var(--blue)}
+.nowname{font-size:44px;font-weight:700}.nowar{font-size:36px;color:var(--gold);font-family:"Amiri","Noto Naskh Arabic",serif}
+.pray{background:rgba(7,19,28,.88);border:2px solid var(--gold);border-radius:16px;padding:12px 26px;font-size:30px;
+ font-variant-numeric:tabular-nums;text-align:right}
+.pray b{color:var(--gold2)} .pray small{display:block;font-size:22px;color:var(--muted)}
+/* guide */
+.guide{position:absolute;left:0;right:0;bottom:0;z-index:5;padding:110px 44px 30px;
+ background:linear-gradient(transparent,rgba(0,0,0,.94) 30%);transition:opacity .4s}
+.off{opacity:0;pointer-events:none}
+.tabs{display:flex;gap:14px;margin-bottom:22px}
+.tab{font-size:28px;padding:10px 26px;border-radius:40px;background:var(--panel);color:var(--muted);cursor:pointer;border:2px solid transparent}
+.tab.on{background:var(--gold);color:#1b1405;font-weight:700}
+.chs{display:flex;gap:16px;overflow:hidden}
+.ch{flex:0 0 300px;background:var(--panel);border:3px solid transparent;border-radius:18px;padding:18px 20px;cursor:pointer;min-height:130px}
+.ch .ar{font-family:"Amiri","Noto Naskh Arabic",serif;color:var(--gold);font-size:30px;line-height:1.3;min-height:40px}
+.ch .n{font-size:26px;font-weight:600}.ch .d{font-size:20px;color:var(--muted);margin-top:4px}
+.ch.on{border-color:var(--gold);background:var(--panel2)}
+.hints{display:flex;gap:36px;margin-top:22px;font-size:24px;color:var(--muted);align-items:center}
+.k{display:inline-block;min-width:40px;padding:2px 10px;border-radius:8px;background:#ffffff22;color:var(--text);text-align:center;font-weight:700;margin-right:6px}
+.k.y{background:var(--yellow);color:#222}.k.r{background:var(--red)}.k.b{background:var(--blue)}
+.btn{cursor:pointer}
+/* alerts */
+.alert{position:absolute;inset:0;z-index:60;background:rgba(3,15,22,.9);display:flex;align-items:center;justify-content:center}
+.hidden{display:none!important}
+.card{width:1200px;padding:64px;border-radius:36px;text-align:center;background:linear-gradient(160deg,#14614f,#0b3d33);
+ border:4px solid var(--gold);box-shadow:0 0 120px rgba(227,183,91,.35)}
+.card .i{font-size:110px}.card .t{font-size:84px;font-weight:700}
+.card .a{font-size:66px;color:var(--gold);font-family:"Amiri","Noto Naskh Arabic",serif}
+.card .m{font-size:36px;margin-top:16px}
+.card .du{font-size:32px;color:var(--gold2);margin-top:24px;font-family:"Amiri","Noto Naskh Arabic",serif;line-height:1.6;direction:rtl}
+.card .h{font-size:24px;color:var(--muted);margin-top:30px}
+.toast{position:absolute;top:150px;left:50%;transform:translateX(-50%);z-index:55;background:#14614f;border:3px solid var(--gold);
+ border-radius:20px;padding:24px 48px;font-size:36px;box-shadow:0 10px 50px rgba(0,0,0,.6)}
+</style></head><body>
+<div id="app">
+  <div id="player"><div class="idle"><b>📺</b>Dooro kanaal · Choose a channel</div></div>
+
+  <div id="top" class="top">
+    <div class="now"><span id="pill" class="livepill">LIVE</span><div><div id="nowName" class="nowname">Ajs Web TV</div><div id="nowAr" class="nowar"></div></div></div>
+    <div id="pray" class="pray"></div>
+  </div>
+
+  <div id="guide" class="guide">
+    <div id="tabs" class="tabs"></div>
+    <div id="chs" class="chs"></div>
+    <div class="hints">
+      <span><b class="k">◀▶</b> Kanaal / Channel</span>
+      <span><b class="k">▲▼</b> Qayb / Category</span>
+      <span class="btn" data-k="405"><b class="k y">C</b> <span id="modeHint">Live ⇄ Latest videos</span></span>
+      <span class="btn" data-k="403"><b class="k r">A</b> Test adhan</span>
+      <span class="btn" data-k="404"><b class="k" style="background:#3fae6a">B</b> Salaadda · Prayer screen</span>
+      <span class="btn" data-k="406"><b class="k b">D</b> Sound on/off</span>
+      <span class="btn" data-k="27"><b class="k">BACK</b> Hide menu</span>
+    </div>
+  </div>
+
+  <div id="alert" class="alert hidden"><div class="card">
+    <div id="aI" class="i">🕌</div><div id="aT" class="t"></div><div id="aA" class="a"></div><div id="aM" class="m"></div>
+    <div class="du">اللَّهُمَّ رَبَّ هَذِهِ الدَّعْوَةِ التَّامَّةِ، وَالصَّلَاةِ الْقَائِمَةِ، آتِ مُحَمَّدًا الْوَسِيلَةَ وَالْفَضِيلَةَ، وَابْعَثْهُ مَقَامًا مَحْمُودًا الَّذِي وَعَدْتَهُ</div>
+    <div class="h">Riix OK ama BACK · Press OK or BACK — TV resumes</div>
+  </div></div>
+  <div id="toast" class="toast hidden"></div>
+</div>
+<script>
+/* Salah TV — offline prayer time calculation (standard astronomical method). */
+(function (g) {
+  'use strict';
+  var DR = Math.PI / 180;
+  function dsin(d) { return Math.sin(d * DR); }
+  function dcos(d) { return Math.cos(d * DR); }
+  function dtan(d) { return Math.tan(d * DR); }
+  function darcsin(x) { return Math.asin(x) / DR; }
+  function darccos(x) { return Math.acos(x) / DR; }
+  function darctan2(y, x) { return Math.atan2(y, x) / DR; }
+  function darccot(x) { return Math.atan(1 / x) / DR; }
+  function fix(a, b) { a = a - b * Math.floor(a / b); return a < 0 ? a + b : a; }
+
+  var METHODS = {
+    ISNA:    { name: 'ISNA (North America)',     fajr: 15,   isha: 15 },
+    MWL:     { name: 'Muslim World League',      fajr: 18,   isha: 17 },
+    Egypt:   { name: 'Egyptian General Authority', fajr: 19.5, isha: 17.5 },
+    Makkah:  { name: 'Umm al-Qura (Makkah)',     fajr: 18.5, ishaMin: 90 },
+    Karachi: { name: 'Univ. of Islamic Sciences, Karachi', fajr: 18, isha: 18 },
+    Turkey:  { name: 'Diyanet (Turkey)',         fajr: 18,   isha: 17 }
+  };
+
+  function julian(y, m, d) {
+    if (m <= 2) { y -= 1; m += 12; }
+    var A = Math.floor(y / 100), B = 2 - A + Math.floor(A / 4);
+    return Math.floor(365.25 * (y + 4716)) + Math.floor(30.6001 * (m + 1)) + d + B - 1524.5;
+  }
+
+  function sunPos(jd) {
+    var D = jd - 2451545.0;
+    var gg = fix(357.529 + 0.98560028 * D, 360);
+    var q = fix(280.459 + 0.98564736 * D, 360);
+    var L = fix(q + 1.915 * dsin(gg) + 0.020 * dsin(2 * gg), 360);
+    var e = 23.439 - 0.00000036 * D;
+    var RA = darctan2(dcos(e) * dsin(L), dcos(L)) / 15;
+    return { decl: darcsin(dsin(e) * dsin(L)), eqt: q / 15 - fix(RA, 24) };
+  }
+
+  /* Returns {fajr,sunrise,dhuhr,asr,maghrib,isha} as Date objects in the device's local time. */
+  function compute(date, lat, lng, opts) {
+    opts = opts || {};
+    var y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate();
+    var tz = -new Date(y, m - 1, d, 12).getTimezoneOffset() / 60;
+    var jd = julian(y, m, d) - lng / (15 * 24);
+    var M = METHODS[opts.method] || METHODS.ISNA;
+    var asrF = opts.asr === 'hanafi' ? 2 : 1;
+
+    function midDay(t) { return fix(12 - sunPos(jd + t).eqt, 24); }
+    function angleTime(angle, t, ccw) {
+      var decl = sunPos(jd + t).decl, noon = midDay(t);
+      var v = (-dsin(angle) - dsin(decl) * dsin(lat)) / (dcos(decl) * dcos(lat));
+      var tt = darccos(v) / 15;
+      return noon + (ccw ? -tt : tt);
+    }
+    function asrTime(f, t) {
+      var decl = sunPos(jd + t).decl;
+      return angleTime(-darccot(f + dtan(Math.abs(lat - decl))), t);
+    }
+
+    var t = { fajr: 5, sunrise: 6, dhuhr: 12, asr: 13, sunset: 18, isha: 18 };
+    for (var i = 0; i < 2; i++) {
+      var n = {
+        fajr: angleTime(M.fajr, t.fajr / 24, true),
+        sunrise: angleTime(0.833, t.sunrise / 24, true),
+        dhuhr: midDay(t.dhuhr / 24),
+        asr: asrTime(asrF, t.asr / 24),
+        sunset: angleTime(0.833, t.sunset / 24),
+        isha: M.ishaMin ? 18 : angleTime(M.isha, t.isha / 24)
+      };
+      for (var k in n) if (!isNaN(n[k])) t[k] = n[k]; else if (i === 1) t[k] = NaN;
+    }
+
+    for (var k2 in t) t[k2] += tz - lng / 15;
+
+    // High-latitude safety (angle-based rule)
+    var night = fix(t.sunrise - t.sunset, 24);
+    var fp = M.fajr / 60 * night;
+    if (isNaN(t.fajr) || fix(t.sunrise - t.fajr, 24) > fp) t.fajr = t.sunrise - fp;
+    if (M.ishaMin) {
+      t.isha = t.sunset + M.ishaMin / 60;
+    } else {
+      var ip = M.isha / 60 * night;
+      if (isNaN(t.isha) || fix(t.isha - t.sunset, 24) > ip) t.isha = t.sunset + ip;
+    }
+    t.maghrib = t.sunset;
+
+    var adj = opts.adjust || {};
+    var out = {};
+    ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'].forEach(function (key) {
+      var mins = Math.round(t[key] * 60) + (adj[key] || 0);
+      out[key] = new Date(y, m - 1, d, 0, mins, 0, 0);
+    });
+    return out;
+  }
+
+  /* Tabular (Kuwaiti) Hijri date. adj = day offset (−2…+2). */
+  function hijri(date, adj) {
+    var dd = new Date(date.getFullYear(), date.getMonth(), date.getDate() + (adj || 0));
+    var jd = Math.floor(julian(dd.getFullYear(), dd.getMonth() + 1, dd.getDate()) + 0.5);
+    var l = jd - 1948440 + 10632;
+    var n = Math.floor((l - 1) / 10631);
+    l = l - 10631 * n + 354;
+    var j = Math.floor((10985 - l) / 5316) * Math.floor((50 * l) / 17719) +
+            Math.floor(l / 5670) * Math.floor((43 * l) / 15238);
+    l = l - Math.floor((30 - j) / 15) * Math.floor((17719 * j) / 50) -
+        Math.floor(j / 16) * Math.floor((15238 * j) / 43) + 29;
+    var mo = Math.floor((24 * l) / 709);
+    return { d: l - Math.floor((709 * mo) / 24), m: mo, y: 30 * n + j - 30 };
+  }
+
+  g.PrayTimes = { METHODS: METHODS, compute: compute, hijri: hijri };
+  if (typeof module !== 'undefined') module.exports = g.PrayTimes;
+})(typeof window !== 'undefined' ? window : this);
+
+</script>
+<script>
+(function () {
+'use strict';
+/* ===== CHANNELS — free, official YouTube channels =====
+   live:true  -> plays the channel's current live stream
+   live:false -> plays the channel's latest uploads (for channels that are not live 24/7)
+   C (yellow) toggles between the two at any time. */
+var CATS = [
+ { name: 'Qur’aan', list: [
+  { id: 'UCos52azQNBgW63_9uDJoPDA', n: 'Makkah · Quran TV', ar: 'قناة القرآن الكريم', d: 'Al-Masjid al-Ḥarām 24/7', live: true },
+  { id: 'UCROKYPep-UuODNwyipe6JMw', n: 'Madinah · Sunnah TV', ar: 'قناة السنة النبوية', d: 'Al-Masjid an-Nabawī 24/7', live: true },
+  { id: 'UC16i5aCHsOEf3XUw-OLc3cQ', n: 'Quran Live', ar: 'القرآن الكريم مباشر', d: 'Recitation 24/7', live: true },
+  { id: 'UCdA0b-SGo_601VP5OHitffg', n: 'Quran TV Channel', ar: 'تلاوات', d: 'Recitations', live: true },
+  { id: 'UCw1_jh1vZ1pgVSh_u5KbEJw', n: 'Iqra Quran HD', ar: 'اقرأ', d: 'Recitations', live: true }
+ ]},
+ { name: 'Soomaali', list: [
+  { id: 'UC4Wc1pJ0hV3zLMegTXeIJeQ', n: 'Universal TV', ar: 'Universal', d: 'Wararka & barnaamijyo', live: true },
+  { id: 'UCHoq0l91NIxYZ4d97aHDnbQ', n: 'Horn Cable TV', ar: 'HCTV', d: 'Wararka Soomaaliland', live: true },
+  { id: 'UCqwifYpVBdo91WFD_ubnGGQ', n: 'Dalsan TV', ar: 'Dalsan', d: 'Wararka Muqdisho', live: true },
+  { id: 'UC7I6LFWTpvfkKhamdlNsbAQ', n: 'HBN Online TV', ar: 'HBN', d: 'Wararka', live: true },
+  { id: 'UC3rc77c7FwsUx3LoRSoNgpA', n: 'Somali TV of Minnesota', ar: 'STV MN', d: 'Diaspora · USA', live: true }
+ ]},
+ { name: 'Wararka Carabi · Arabic News', list: [
+  { id: 'UCfiwzLy-8yKzIbsmZTzxDgw', n: 'Al Jazeera', ar: 'الجزيرة', d: 'Arabic news', live: true },
+  { id: 'UCahpxixMCwoANAftn6IxkTg', n: 'Al Arabiya', ar: 'العربية', d: 'Arabic news', live: true },
+  { id: 'UCIJXOvggjKtCagMfxvcCzAA', n: 'Sky News Arabia', ar: 'سكاي نيوز عربية', d: 'Arabic news', live: true }
+ ]},
+ { name: 'English', list: [
+  { id: 'UCNye-wNBqNL5ZzHSJj3l8Bg', n: 'Al Jazeera English', ar: 'الجزيرة الإنجليزية', d: 'World news', live: true }
+ ]}
+];
+
+/* ===== state ===== */
+var st = { cat: 0, ch: 0, vod: {}, sound: true };
+try { var sv = JSON.parse(localStorage.getItem('ajswebtv') || 'null'); if (sv) for (var k in sv) st[k] = sv[k]; } catch (e) {}
+function save() { try { localStorage.setItem('ajswebtv', JSON.stringify(st)); } catch (e) {} }
+function $(i) { return document.getElementById(i); }
+if (!CATS[st.cat]) st.cat = 0; if (!CATS[st.cat].list[st.ch]) st.ch = 0;
+
+/* prayer settings: shared with Salah TV when on the same site */
+var P = { lat: 39.7294, lng: -104.8319, cityName: 'Aurora, CO', method: 'ISNA', asr: 'standard', clock24: false, pre: 10,
+  alerts: { fajr: 1, dhuhr: 1, asr: 1, maghrib: 1, isha: 1 }, adjust: {} };
+try { var ps = JSON.parse(localStorage.getItem('salahtv') || 'null'); if (ps) for (var k2 in ps) P[k2] = ps[k2]; } catch (e) {}
+
+/* ===== player ===== */
+function cur() { return CATS[st.cat].list[st.ch]; }
+function isVod(c) { var v = st.vod[c.id]; return v === undefined ? !c.live : v; }
+var ytp = null, playSeq = 0;
+function play(forceVod) {
+  var c = cur(), src, seq = ++playSeq, vod = forceVod || isVod(c);
+  var q = '&autoplay=1&rel=0&modestbranding=1&playsinline=1&enablejsapi=1&origin=' + encodeURIComponent(location.origin);
+  if (vod) src = 'https://www.youtube.com/embed/videoseries?list=UU' + c.id.slice(2) + q;
+  else src = 'https://www.youtube.com/embed/live_stream?channel=' + c.id + q;
+  $('player').innerHTML = '<iframe id="yt" referrerpolicy="strict-origin-when-cross-origin" allow="autoplay; encrypted-media; fullscreen" allowfullscreen src="' + src + '"></iframe>';
+  ytp = null;
+  // If the channel is not live right now, fall back to its latest videos automatically.
+  if (!vod) whenYT(function () {
+    if (seq !== playSeq) return;
+    try {
+      ytp = new YT.Player('yt', { events: { onError: function () {
+        if (seq === playSeq) { toast('📼 ' + c.n + ': not live now → latest videos'); play(true); }
+      } } });
+    } catch (e) {}
+  });
+  if (forceVod) { $('pill').textContent = 'LATEST'; $('pill').className = 'livepill vod'; $('nowName').textContent = c.n; $('nowAr').textContent = c.ar; return; }
+  $('nowName').textContent = c.n; $('nowAr').textContent = c.ar;
+  $('pill').textContent = isVod(c) ? 'LATEST' : 'LIVE'; $('pill').className = 'livepill' + (isVod(c) ? ' vod' : '');
+  $('modeHint').textContent = isVod(c) ? 'Switch to Live' : 'Switch to latest videos';
+}
+function stop() { $('player').innerHTML = ''; }
+
+/* YouTube IFrame API (used only to detect "not live" and switch to latest videos) */
+var ytReady = false, ytQ = [];
+window.onYouTubeIframeAPIReady = function () { ytReady = true; ytQ.forEach(function (f) { f(); }); ytQ = []; };
+(function () { var t = document.createElement('script'); t.src = 'https://www.youtube.com/iframe_api'; document.head.appendChild(t); })();
+function whenYT(f) { if (ytReady) f(); else ytQ.push(f); }
+
+/* ===== guide ===== */
+var gTimer = null;
+function renderGuide() {
+  var t = '';
+  CATS.forEach(function (c, i) { t += '<div class="tab' + (i === st.cat ? ' on' : '') + '" data-cat="' + i + '">' + c.name + '</div>'; });
+  $('tabs').innerHTML = t;
+  var h = '', list = CATS[st.cat].list;
+  list.forEach(function (c, i) {
+    h += '<div class="ch' + (i === st.ch ? ' on' : '') + '" data-ch="' + i + '"><div class="ar">' + c.ar + '</div><div class="n">' + c.n + '</div><div class="d">' + (isVod(c) ? '▶ Latest' : '🔴 Live') + ' · ' + c.d + '</div></div>';
+  });
+  $('chs').innerHTML = h;
+  var on = $('chs').children[st.ch]; if (on) $('chs').scrollLeft = Math.max(0, on.offsetLeft - 600);
+}
+function showGuide() {
+  $('guide').classList.remove('off'); $('top').classList.remove('off');
+  clearTimeout(gTimer); gTimer = setTimeout(hideGuide, 7000);
+}
+function hideGuide() { $('guide').classList.add('off'); $('top').classList.add('off'); }
+function go(cat, ch) { st.cat = cat; st.ch = ch; save(); renderGuide(); play(); showGuide(); }
+
+/* ===== prayer times & alerts ===== */
+var ORDER = ['fajr', 'sunrise', 'dhuhr', 'asr', 'maghrib', 'isha'];
+var NAMES = { fajr: 'Subax · Fajr', sunrise: 'Qorrax · Sunrise', dhuhr: 'Duhur · Dhuhr', asr: 'Casar · Asr', maghrib: 'Maqrib · Maghrib', isha: 'Cisho · Isha' };
+var AR = { fajr: 'الفجر', sunrise: 'الشروق', dhuhr: 'الظهر', asr: 'العصر', maghrib: 'المغرب', isha: 'العشاء' };
+var T = {}, day = '', fired = {};
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function fmt(d) { var h = d.getHours(), m = d.getMinutes(); if (P.clock24) return pad(h) + ':' + pad(m);
+  var ap = h >= 12 ? 'PM' : 'AM'; return (h % 12 || 12) + ':' + pad(m) + ' ' + ap; }
+function calc(d) { return PrayTimes.compute(d, P.lat, P.lng, { method: P.method, asr: P.asr === 'hanafi' ? 'hanafi' : 'standard', adjust: P.adjust || {} }); }
+function ensure(now) {
+  var k = now.toDateString(); if (k === day) return;
+  T = calc(now); T.tf = calc(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)).fajr; day = k; fired = {};
+  ORDER.forEach(function (p) { if (T[p] <= now) { fired[p] = 1; fired['pre' + p] = 1; } });
+}
+function next(now) {
+  for (var i = 0; i < ORDER.length; i++) { var p = ORDER[i]; if (p !== 'sunrise' && T[p] > now) return { p: p, at: T[p] }; }
+  return { p: 'fajr', at: T.tf };
+}
+function tick() {
+  var now = new Date(); ensure(now);
+  var n = next(now), s = Math.max(0, Math.floor((n.at - now) / 1000));
+  var nm = n.p === 'dhuhr' && now.getDay() === 5 ? "Jimce · Jumu'ah" : NAMES[n.p];
+  $('pray').innerHTML = '🕌 ' + nm + ' · ' + fmt(n.at) + ' <b>' + pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s % 3600 / 60)) + ':' + pad(s % 60) + '</b><small>' + fmt(now) + ' · ' + P.cityName + '</small>';
+  ORDER.forEach(function (p) {
+    if (p === 'sunrise' || (P.alerts && P.alerts[p] === false)) return;
+    var at = T[p];
+    if (P.pre > 0 && !fired['pre' + p] && now >= at - P.pre * 60000 && now < at) { fired['pre' + p] = 1; toast('⏰ ' + P.pre + ' daqiiqo · min → ' + NAMES[p]); chime(2); }
+    if (!fired[p] && now >= at && now - at < 120000) { fired[p] = 1; adhan(p); }
+  });
+}
+var aTimer = null;
+function adhan(p, test) {
+  stop();
+  $('aI').textContent = p === 'fajr' ? '🌄' : p === 'maghrib' ? '🌇' : p === 'isha' ? '🌙' : '🕌';
+  $('aT').textContent = 'Waa waqtigii ' + NAMES[p].split(' · ')[0] + ' · ' + NAMES[p].split(' · ')[1];
+  $('aA').textContent = 'حَيَّ عَلَى الصَّلَاةِ — ' + AR[p];
+  $('aM').textContent = fmt(T[p] || new Date()) + ' · ' + P.cityName;
+  $('alert').classList.remove('hidden');
+  chime(4);
+  clearTimeout(aTimer); aTimer = setTimeout(closeAlert, test ? 60000 : 600000);
+}
+function closeAlert() { $('alert').classList.add('hidden'); clearTimeout(aTimer); play(); showGuide(); }
+function alertOpen() { return !$('alert').classList.contains('hidden'); }
+var tT = null;
+function toast(m) { var e = $('toast'); e.textContent = m; e.classList.remove('hidden'); clearTimeout(tT); tT = setTimeout(function () { e.classList.add('hidden'); }, 15000); }
+var ac = null;
+function chime(r) {
+  if (!st.sound) return;
+  try {
+    ac = ac || new (window.AudioContext || window.webkitAudioContext)(); if (ac.state === 'suspended') ac.resume();
+    [659.25, 783.99, 987.77, 1318.5].forEach(function (f, i) {
+      for (var j = 0; j < r; j++) {
+        var t0 = ac.currentTime + j * 2.2 + i * 0.35, o = ac.createOscillator(), g = ac.createGain();
+        o.frequency.value = f; g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(0.35, t0 + 0.03);
+        g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.8); o.connect(g); g.connect(ac.destination); o.start(t0); o.stop(t0 + 1.9);
+      }
+    });
+  } catch (e) {}
+}
+
+/* ===== input: remote, keyboard, pointer ===== */
+function key(k, e) {
+  if (ac && ac.state === 'suspended') ac.resume();
+  if (alertOpen()) { if ([13, 10009, 27, 8].indexOf(k) > -1) { closeAlert(); e && e.preventDefault(); } return; }
+  var L = CATS[st.cat].list;
+  if (k === 37) go(st.cat, (st.ch - 1 + L.length) % L.length);
+  else if (k === 39) go(st.cat, (st.ch + 1) % L.length);
+  else if (k === 38) go((st.cat - 1 + CATS.length) % CATS.length, 0);
+  else if (k === 40) go((st.cat + 1) % CATS.length, 0);
+  else if (k === 13) showGuide();
+  else if (k === 405 || k === 67) { var c = cur(); st.vod[c.id] = !isVod(c); save(); renderGuide(); play(); showGuide(); }
+  else if (k === 403 || k === 65) adhan(next(new Date()).p, true);
+  else if (k === 404 || k === 66) location.href = './';
+  else if (k === 406 || k === 68) { st.sound = !st.sound; save(); toast(st.sound ? '🔊 Codka alerts: ON' : '🔇 Codka alerts: OFF'); }
+  else if (k === 10009 || k === 27 || k === 8) { if ($('guide').classList.contains('off')) showGuide(); else hideGuide(); }
+  else return;
+  e && e.preventDefault();
+}
+document.addEventListener('keydown', function (e) { key(e.keyCode, e); });
+document.addEventListener('click', function (e) {
+  if (alertOpen()) { closeAlert(); return; }
+  var el = e.target;
+  while (el && el.getAttribute && !el.getAttribute('data-ch') && !el.getAttribute('data-cat') && !el.getAttribute('data-k')) el = el.parentNode;
+  if (!el || !el.getAttribute) { showGuide(); return; }
+  if (el.getAttribute('data-cat')) { st.cat = +el.getAttribute('data-cat'); st.ch = 0; renderGuide(); showGuide(); return; }
+  if (el.getAttribute('data-ch')) { go(st.cat, +el.getAttribute('data-ch')); return; }
+  key(+el.getAttribute('data-k'));
+});
+document.addEventListener('mousemove', showGuide);
+try { if (window.tizen) ['ColorF0Red', 'ColorF2Yellow', 'ColorF3Blue'].forEach(function (k) { tizen.tvinputdevice.registerKey(k); }); } catch (e) {}
+
+/* ===== fit 1920x1080 canvas to any screen ===== */
+function fit() { var s = Math.min(innerWidth / 1920, innerHeight / 1080), a = $('app');
+  a.style.transform = 'scale(' + s + ')'; a.style.left = (innerWidth - 1920 * s) / 2 + 'px'; a.style.top = (innerHeight - 1080 * s) / 2 + 'px'; }
+addEventListener('resize', fit); fit();
+
+renderGuide(); play(); showGuide(); tick(); setInterval(tick, 1000);
+})();
+</script>
+</body></html>
